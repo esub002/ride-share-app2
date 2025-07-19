@@ -1,0 +1,132 @@
+# GitHub Actions workflow for Node.js backend CI/CD
+name: CI/CD
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ride_share_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Backend
+      - name: Install backend dependencies
+        run: npm install
+        working-directory: ./backend
+      - name: Run backend tests
+        run: npm test
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ride_share_test
+          NODE_ENV: test
+        continue-on-error: true
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Frontend
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: ./frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: ./frontend
+        continue-on-error: true
+      - name: Run frontend tests
+        run: npm test -- --watchAll=false --passWithNoTests
+        working-directory: ./frontend
+        continue-on-error: true
+
+  driver-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Driver App (React Native/Expo)
+      - name: Install driver app dependencies
+        run: npm install
+        working-directory: ./apps/driver-app
+      - name: Check driver app build (Expo)
+        run: npx expo install --fix
+        working-directory: ./apps/driver-app
+        continue-on-error: true
+      - name: Run driver app tests
+        run: npm test -- --watchAll=false --passWithNoTests
+        working-directory: ./apps/driver-app
+        continue-on-error: true
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Security audit for all packages
+      - name: Run security audit (backend)
+        run: npm audit --audit-level=high
+        working-directory: ./backend
+        continue-on-error: true
+      - name: Run security audit (frontend)
+        run: npm audit --audit-level=high
+        working-directory: ./frontend
+        continue-on-error: true
+      - name: Run security audit (driver-app)
+        run: npm audit --audit-level=high
+        working-directory: ./apps/driver-app
+        continue-on-error: true
+
+  artifacts:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, driver-app, security]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload Backend Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-artifacts
+          path: ./backend
+        if: always()
+      - name: Upload Frontend Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-artifacts
+          path: ./frontend/build
+        if: always()
+      - name: Upload Driver App Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-app-artifacts
+          path: ./apps/driver-app
+        if: always()

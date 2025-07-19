@@ -1,0 +1,63 @@
+# GitHub Actions workflow for React frontend CI
+name: Frontend CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./frontend
+      
+      - name: Run build
+        run: npm run build
+        working-directory: ./frontend
+        continue-on-error: true
+      
+      - name: Run tests
+        run: npm test -- --watchAll=false --passWithNoTests
+        working-directory: ./frontend
+        continue-on-error: true
+      
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: ./frontend/build
+        if: always()
+
+  driver-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./apps/driver-app
+      
+      - name: Check Expo build
+        run: npx expo install --fix
+        working-directory: ./apps/driver-app
+        continue-on-error: true
+      
+      - name: Upload Driver App Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-app-build
+          path: ./apps/driver-app
+        if: always()

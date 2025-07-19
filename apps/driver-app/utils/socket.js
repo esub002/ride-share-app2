@@ -1,0 +1,1 @@
+// Deprecated: All socket logic is now handled in api.js. This file is no longer used. 

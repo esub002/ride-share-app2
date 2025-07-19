@@ -1,0 +1,1 @@
+// This file is now obsolete. Offline status is handled globally in App.js with OfflineBanner. 
