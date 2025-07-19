@@ -42,6 +42,7 @@ import VerificationScreen from './screens/VerificationScreen';
 import DrawerNavigator from './navigation/DrawerNavigator';
 import VerificationStack from './navigation/VerificationStack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthProvider } from './auth/AuthContext';
 
 export const ErrorContext = createContext({ setError: () => {} });
 export const LoadingContext = createContext({ setLoading: () => {}, loading: false });
@@ -123,9 +124,6 @@ function SocketStatusBanner() {
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
 
-// Mock authentication context
-const AuthContext = React.createContext();
-
 // Component wrappers to fix navigation issues
 const DriverHomeWrapper = (props) => <DriverHome {...props} user={global.user} token={global.token} />;
 const RideManagementWrapper = (props) => <RideManagement {...props} user={global.user} token={global.token} />;
@@ -201,24 +199,12 @@ function MainApp() {
     };
   }, []);
 
-  // Performance optimization: Memoize navigation options
-  const screenOptions = performanceOptimizer.memoize('screenOptions', () => ({
-    headerStyle: {
-      backgroundColor: Colors.light.primary,
-    },
-    headerTintColor: Colors.light.textInverse,
-    headerTitleStyle: {
-      ...Typography.h4,
-      color: Colors.light.textInverse,
-    },
-  }));
-
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <LoadingSpinner 
-          type="pulse" 
-          text="Initializing Driver App..." 
+          type="bounce" 
+          text="Initializing..." 
           color={Colors.light.primary}
           size="large"
         />
@@ -228,16 +214,30 @@ function MainApp() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <OfflineIndicator />
+      <OfflineBanner />
+      <SocketStatusBanner />
       <Drawer.Navigator
         drawerContent={(props) => <DrawerContent {...props} />}
-        screenOptions={screenOptions}
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: Colors.light.primary,
+          },
+          headerTintColor: Colors.light.textInverse,
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          drawerStyle: {
+            backgroundColor: Colors.light.background,
+          },
+          drawerActiveTintColor: Colors.light.primary,
+          drawerInactiveTintColor: Colors.light.textSecondary,
+        }}
       >
         <Drawer.Screen 
           name="Home" 
-          component={DriverHome} 
+          component={DriverHomeWrapper} 
           options={{
-            title: 'Driver Dashboard',
+            title: 'Dashboard',
             drawerIcon: ({ color, size }) => (
               <Ionicons name="home" color={color} size={size} />
             ),
@@ -245,7 +245,7 @@ function MainApp() {
         />
         <Drawer.Screen 
           name="RideManagement" 
-          component={RideManagement} 
+          component={RideManagementWrapper} 
           options={{
             title: 'Ride Management',
             drawerIcon: ({ color, size }) => (
@@ -255,7 +255,7 @@ function MainApp() {
         />
         <Drawer.Screen 
           name="EarningsFinance" 
-          component={EarningsFinance} 
+          component={EarningsFinanceWrapper} 
           options={{
             title: 'Earnings & Finance',
             drawerIcon: ({ color, size }) => (
@@ -265,7 +265,7 @@ function MainApp() {
         />
         <Drawer.Screen 
           name="SafetyCommunication" 
-          component={SafetyCommunication} 
+          component={SafetyCommunicationWrapper} 
           options={{
             title: 'Safety & Communication',
             drawerIcon: ({ color, size }) => (
@@ -275,7 +275,7 @@ function MainApp() {
         />
         <Drawer.Screen 
           name="VoiceCommands" 
-          component={VoiceCommands} 
+          component={VoiceCommandsWrapper} 
           options={{
             title: 'Voice Commands',
             drawerIcon: ({ color, size }) => (
@@ -285,17 +285,17 @@ function MainApp() {
         />
         <Drawer.Screen 
           name="AdvancedSafety" 
-          component={AdvancedSafety} 
+          component={AdvancedSafetyWrapper} 
           options={{
             title: 'Advanced Safety',
             drawerIcon: ({ color, size }) => (
-              <Ionicons name="warning" color={color} size={size} />
+              <Ionicons name="shield-checkmark" color={color} size={size} />
             ),
           }}
         />
         <Drawer.Screen 
           name="DriverAnalytics" 
-          component={DriverAnalytics} 
+          component={DriverAnalyticsWrapper} 
           options={{
             title: 'Analytics',
             drawerIcon: ({ color, size }) => (
@@ -349,7 +349,7 @@ function MainApp() {
           options={{
             title: 'Safety Features',
             drawerIcon: ({ color, size }) => (
-              <Ionicons name="medical" color={color} size={size} />
+              <Ionicons name="warning" color={color} size={size} />
             ),
           }}
         />
@@ -551,7 +551,9 @@ export default function App() {
       <ErrorBoundary>
         <GlobalErrorHandler>
           <LoadingProvider>
-            <AppNavigator />
+            <AuthProvider>
+              <AppNavigator />
+            </AuthProvider>
           </LoadingProvider>
         </GlobalErrorHandler>
       </ErrorBoundary>

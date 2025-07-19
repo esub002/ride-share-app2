@@ -6,6 +6,7 @@ import RideManagement from '../components/RideManagement';
 import EarningsFinance from '../components/EarningsFinance';
 import Wallet from '../components/Wallet';
 import NotificationTest from '../components/NotificationTest';
+import Profile from '../screens/Profile';
 
 const Tab = createBottomTabNavigator();
 
@@ -21,6 +22,7 @@ export default function HomeTabs() {
             case 'Earnings': iconName = 'cash'; break;
             case 'Wallet': iconName = 'wallet'; break;
             case 'Notifications': iconName = 'notifications'; break;
+            case 'Profile': iconName = 'person'; break;
             default: iconName = 'ellipse';
           }
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -32,6 +34,7 @@ export default function HomeTabs() {
       <Tab.Screen name="Earnings" component={EarningsFinance} />
       <Tab.Screen name="Wallet" component={Wallet} />
       <Tab.Screen name="Notifications" component={NotificationTest} />
+      <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>
   );
 } 

@@ -216,13 +216,14 @@ export default function EarningsFinance({ user, token }) {
 
   const requestWithdrawal = async () => {
     const amount = parseFloat(withdrawalAmount);
-    if (!amount || amount <= 0) {
+    
+    if (isNaN(amount) || amount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid withdrawal amount');
       return;
     }
 
-    if (amount > earnings.pending) {
-      Alert.alert('Insufficient Funds', `You can only withdraw up to $${earnings.pending.toFixed(2)}`);
+    if (!earnings || amount > (earnings.pending || 0)) {
+      Alert.alert('Insufficient Funds', `You can only withdraw up to $${(earnings?.pending || 0).toFixed(2)}`);
       return;
     }
 
@@ -243,7 +244,7 @@ export default function EarningsFinance({ user, token }) {
       setTransactions([newTransaction, ...transactions]);
       setEarnings(prev => ({
         ...prev,
-        pending: prev.pending - amount
+        pending: (prev?.pending || 0) - amount
       }));
       
       Alert.alert('Success', `Withdrawal request submitted for $${amount.toFixed(2)}`);
@@ -290,15 +291,17 @@ export default function EarningsFinance({ user, token }) {
   };
 
   const getEarningsForPeriod = () => {
+    if (!earnings) return 0;
+    
     switch (selectedPeriod) {
       case 'today':
-        return earnings.today;
+        return earnings.today || 0;
       case 'week':
-        return earnings.week;
+        return earnings.week || 0;
       case 'month':
-        return earnings.month;
+        return earnings.month || 0;
       default:
-        return earnings.today;
+        return earnings.today || 0;
     }
   };
 
@@ -479,11 +482,11 @@ export default function EarningsFinance({ user, token }) {
 
                 <View style={styles.earningsStats}>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>${earnings.total.toFixed(2)}</Text>
+                    <Text style={styles.statValue}>${(earnings?.total || 0).toFixed(2)}</Text>
                     <Text style={styles.statLabel}>Total Earnings</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>${earnings.pending.toFixed(2)}</Text>
+                    <Text style={styles.statValue}>${(earnings?.pending || 0).toFixed(2)}</Text>
                     <Text style={styles.statLabel}>Pending</Text>
                   </View>
                   <View style={styles.statItem}>
@@ -735,7 +738,7 @@ export default function EarningsFinance({ user, token }) {
             </View>
             
             <Text style={styles.withdrawalInfo}>
-              Available for withdrawal: <Text style={styles.withdrawalAmount}>${earnings.pending.toFixed(2)}</Text>
+              Available for withdrawal: <Text style={styles.withdrawalAmount}>${(earnings?.pending || 0).toFixed(2)}</Text>
             </Text>
 
             <TextInput

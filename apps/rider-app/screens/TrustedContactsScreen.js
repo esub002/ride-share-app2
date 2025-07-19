@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, StatusBa
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Contacts from 'expo-contacts';
-import { Colors } from '../../constants/Colors';
-import { Spacing } from '../../constants/Spacing';
-import { Typography } from '../../constants/Typography';
-import Button from '../../components/ui/Button';
-import { useAuth } from '../../auth/AuthContext';
+import { Colors } from '../constants/Colors';
+import { Spacing } from '../constants/Spacing';
+import { Typography } from '../constants/Typography';
+import Button from '../components/ui/Button';
+import { useAuth } from '../auth/AuthContext';
 
 export default function TrustedContactsScreen({ navigation }) {
   const { addTrustedContact, trustedContacts, removeTrustedContact } = useAuth();

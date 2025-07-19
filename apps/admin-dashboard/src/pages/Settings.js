@@ -8,34 +8,20 @@ import {
   CardContent,
   CardHeader,
   Switch,
-  FormControlLabel,
-  TextField,
   Button,
-  Divider,
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   Alert,
   Snackbar,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Slider,
-  Chip
+  Avatar
 } from '@mui/material';
 import {
-  Settings as SettingsIcon,
   Notifications as NotificationsIcon,
   Security as SecurityIcon,
-  Payment as PaymentIcon,
-  Language as LanguageIcon,
-  Palette as PaletteIcon,
   Save as SaveIcon,
-  Refresh as RefreshIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 
 function Settings() {

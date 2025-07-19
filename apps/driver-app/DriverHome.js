@@ -220,7 +220,7 @@ export default function DriverHome({ navigation }) {
       const earningsData = await apiService.getEarningsData('week');
       console.log('Earnings data received:', earningsData);
       
-      // Handle different data structures
+      // Handle different data structures with proper null checks
       if (earningsData && typeof earningsData === 'object') {
         // If it's the mock data structure
         if (earningsData.today !== undefined) {
@@ -230,13 +230,14 @@ export default function DriverHome({ navigation }) {
         } else {
           // Default structure
           setEarnings({ 
-            today: earningsData.today || 0, 
-            week: earningsData.week || 0, 
-            month: earningsData.month || 0 
+            today: earningsData?.today || 0, 
+            week: earningsData?.week || 0, 
+            month: earningsData?.month || 0 
           });
         }
       } else {
-        // Fallback to default structure
+        // Fallback to default structure when earningsData is undefined/null
+        console.log('Using fallback earnings data');
         setEarnings({ today: 0, week: 0, month: 0 });
       }
     } catch (error) {

@@ -20,6 +20,7 @@ const cors = require('cors');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
 const safetyRoutes = require('./routes/safety');
+const driverVerificationRoutes = require('./routes/driverVerification');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const helmet = require('helmet');
@@ -51,6 +52,55 @@ try {
 let availableDrivers = {};
 let pendingRides = {};
 let rideIdCounter = 1;
+
+// Sample ride requests for testing
+const sampleRideRequests = [
+  {
+    id: 1,
+    user_id: 1,
+    pickup_location: '123 Main St, Chicago, IL',
+    destination: '456 Oak Ave, Chicago, IL',
+    fare: 25.50,
+    notes: 'Please arrive on time',
+    status: 'requested',
+    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 minutes ago
+    driver_id: null,
+    accepted_at: null,
+    completed_at: null
+  },
+  {
+    id: 2,
+    user_id: 2,
+    pickup_location: '789 Pine St, Chicago, IL',
+    destination: '321 Elm St, Chicago, IL',
+    fare: 18.75,
+    notes: 'Need wheelchair accessible vehicle',
+    status: 'requested',
+    created_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 minutes ago
+    driver_id: null,
+    accepted_at: null,
+    completed_at: null
+  },
+  {
+    id: 3,
+    user_id: 3,
+    pickup_location: '555 Lake Shore Dr, Chicago, IL',
+    destination: '777 Michigan Ave, Chicago, IL',
+    fare: 32.00,
+    notes: 'Airport pickup',
+    status: 'requested',
+    created_at: new Date(Date.now() - 1 * 60 * 1000).toISOString(), // 1 minute ago
+    driver_id: null,
+    accepted_at: null,
+    completed_at: null
+  }
+];
+
+// Initialize sample ride requests
+sampleRideRequests.forEach(ride => {
+  pendingRides[ride.id] = ride;
+  rideIdCounter = Math.max(rideIdCounter, ride.id + 1);
+});
 
 // Mock data for development
 const mockData = {
@@ -122,6 +172,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/safety', safetyRoutes);
+app.use('/api/drivers/verification', driverVerificationRoutes);
 app.use('/api/notifications', require('./routes/safety'));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -280,52 +331,120 @@ if (io) {
     socket.on('driver:available', ({ driverId }) => {
       availableDrivers[driverId] = socket.id;
       console.log(`🚗 Driver ${driverId} available: ${socket.id}`);
+      
+      // Emit current ride requests to the newly available driver
+      const pendingRequests = Object.values(pendingRides).filter(ride => ride.status === 'requested');
+      if (pendingRequests.length > 0) {
+        socket.emit('ride_requests_available', pendingRequests);
+      }
     });
 
     // RIDER: Request a ride
-    socket.on('ride:request', ({ origin, destination, riderId }) => {
+    socket.on('ride:request', ({ origin, destination, riderId, fare, notes }) => {
+      const rideRequest = {
+        id: rideIdCounter++,
+        user_id: riderId,
+        pickup_location: origin,
+        destination,
+        fare: fare || 25.00,
+        notes: notes || '',
+        status: 'requested',
+        created_at: new Date().toISOString(),
+        driver_id: null,
+        accepted_at: null,
+        completed_at: null
+      };
+      
+      // Store the ride request
+      pendingRides[rideRequest.id] = rideRequest;
+      
+      // Notify all available drivers
       const driverIds = Object.keys(availableDrivers);
-      if (driverIds.length === 0) {
-        socket.emit('ride:noDrivers');
-        return;
+      if (driverIds.length > 0) {
+        driverIds.forEach(driverId => {
+          const driverSocketId = availableDrivers[driverId];
+          io.to(driverSocketId).emit('new_ride_request', rideRequest);
+        });
       }
-      // Assign first available driver
-      const driverId = driverIds[0];
-      const driverSocketId = availableDrivers[driverId];
-      const rideId = rideIdCounter++;
-      pendingRides[rideId] = { riderId, driverId, origin, destination, status: 'pending', riderSocketId: socket.id };
-      // Notify driver
-      io.to(driverSocketId).emit('ride:incoming', { rideId, origin, destination, riderId });
-      // Wait for driver to accept
-      socket.once('ride:accept', ({ rideId: acceptedRideId, driverId: acceptingDriverId }) => {
-        if (pendingRides[acceptedRideId] && pendingRides[acceptedRideId].driverId == acceptingDriverId) {
-          pendingRides[acceptedRideId].status = 'accepted';
-          const riderSocketId = pendingRides[acceptedRideId].riderSocketId;
-          io.to(riderSocketId).emit('ride:accepted', { rideId: acceptedRideId, driverId: acceptingDriverId });
-          console.log(`✅ Ride ${acceptedRideId} accepted by driver ${acceptingDriverId}`);
-        }
-      });
+      
+      // Confirm to rider
+      socket.emit('ride_request_created', rideRequest);
+      console.log(`🚕 New ride request created: ${rideRequest.id}`);
     });
 
     // DRIVER: Accept ride
     socket.on('ride:accept', ({ rideId, driverId }) => {
-      if (pendingRides[rideId] && pendingRides[rideId].driverId == driverId) {
-        pendingRides[rideId].status = 'accepted';
-        const riderSocketId = pendingRides[rideId].riderSocketId;
-        io.to(riderSocketId).emit('ride:accepted', { rideId, driverId });
+      const ride = pendingRides[rideId];
+      if (ride && ride.status === 'requested') {
+        // Update ride status
+        ride.driver_id = driverId;
+        ride.status = 'active';
+        ride.accepted_at = new Date().toISOString();
+        pendingRides[rideId] = ride;
+        
+        // Notify rider (if connected)
+        socket.emit('ride_accepted', { ride_id: rideId, driver_id: driverId });
+        io.emit('ride_status_update', { ride_id: rideId, status: 'active', driver_id: driverId });
         console.log(`✅ Ride ${rideId} accepted by driver ${driverId}`);
       }
     });
 
     // DRIVER: Complete ride
-    socket.on('ride:complete', ({ rideId, driverId }) => {
-      if (pendingRides[rideId] && pendingRides[rideId].driverId == driverId) {
-        pendingRides[rideId].status = 'completed';
-        const riderSocketId = pendingRides[rideId].riderSocketId;
-        io.to(riderSocketId).emit('ride:completed', { rideId, driverId });
+    socket.on('ride:complete', ({ rideId, driverId, fare, rating }) => {
+      const ride = pendingRides[rideId];
+      if (ride && ride.driver_id == driverId) {
+        // Update ride status
+        ride.status = 'completed';
+        ride.completed_at = new Date().toISOString();
+        ride.fare = fare || ride.fare;
+        ride.rating = rating;
+        pendingRides[rideId] = ride;
+        
+        // Notify all clients
+        io.emit('ride_completed', { ride_id: rideId, driver_id: driverId, fare });
         console.log(`✅ Ride ${rideId} completed by driver ${driverId}`);
-        delete pendingRides[rideId];
       }
+    });
+
+    // DRIVER: Update location
+    socket.on('driver:location_update', ({ driverId, latitude, longitude, accuracy }) => {
+      const locationUpdate = {
+        driver_id: driverId,
+        latitude,
+        longitude,
+        accuracy: accuracy || 10,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Broadcast location update to all clients
+      io.emit('driver_location_update', locationUpdate);
+      console.log(`📍 Driver ${driverId} location updated: ${latitude}, ${longitude}`);
+    });
+
+    // DRIVER: Update availability
+    socket.on('driver:availability_update', ({ driverId, available }) => {
+      if (available) {
+        availableDrivers[driverId] = socket.id;
+      } else {
+        delete availableDrivers[driverId];
+      }
+      
+      io.emit('driver_availability_update', { driver_id: driverId, available });
+      console.log(`🚗 Driver ${driverId} availability updated: ${available}`);
+    });
+
+    // Get current ride requests
+    socket.on('get_ride_requests', () => {
+      const pendingRequests = Object.values(pendingRides).filter(ride => ride.status === 'requested');
+      socket.emit('ride_requests_list', pendingRequests);
+    });
+
+    // Get driver's current ride
+    socket.on('get_current_ride', ({ driverId }) => {
+      const activeRide = Object.values(pendingRides).find(ride => 
+        ride.driver_id == driverId && ride.status === 'active'
+      );
+      socket.emit('current_ride', activeRide || null);
     });
 
     socket.on('disconnect', () => {
