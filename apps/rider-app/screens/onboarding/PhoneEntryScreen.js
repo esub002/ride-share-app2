@@ -17,6 +17,7 @@ import { Spacing } from '../../constants/Spacing';
 import { Typography } from '../../constants/Typography';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../auth/AuthContext';
+import { apiPost } from '../../utils/api';
 
 // Mock country data - in production, use a proper country picker library
 const countries = [
@@ -37,18 +38,30 @@ export default function PhoneEntryScreen({ navigation }) {
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!phoneNumber.trim()) {
       Alert.alert('Error', 'Please enter your phone number');
       return;
     }
-    
-    // Store phone data and navigate to next screen
-    navigation.navigate('UserDetails', {
-      phoneNumber: selectedCountry.code + phoneNumber,
-      countryCode: selectedCountry.code,
-    });
+    setLoading(true);
+    try {
+      const res = await apiPost('/api/auth/register', {
+        phone: selectedCountry.code + phoneNumber,
+        name: '',
+        email: ''
+      });
+      setLoading(false);
+      navigation.navigate('UserDetails', {
+        phoneNumber: selectedCountry.code + phoneNumber,
+        countryCode: selectedCountry.code,
+        backendOtp: res.otp // for dev mode
+      });
+    } catch (err) {
+      setLoading(false);
+      Alert.alert('Registration Error', err.message || 'Failed to register.');
+    }
   };
 
   const handleSocialLogin = (provider) => {
@@ -163,11 +176,11 @@ export default function PhoneEntryScreen({ navigation }) {
           </View>
 
           <Button
-            title="Continue with Phone"
+            title={loading ? 'Registering...' : 'Continue with Phone'}
             icon="arrow-forward"
             style={styles.continueButton}
             onPress={handleContinue}
-            disabled={!phoneNumber.trim()}
+            disabled={!phoneNumber.trim() || loading}
           />
         </View>
 

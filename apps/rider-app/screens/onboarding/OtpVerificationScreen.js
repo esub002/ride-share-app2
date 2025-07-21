@@ -16,6 +16,8 @@ import { Colors } from '../../constants/Colors';
 import { Spacing } from '../../constants/Spacing';
 import { Typography } from '../../constants/Typography';
 import Button from '../../components/ui/Button';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiPost } from '../../utils/api';
 
 export default function OtpVerificationScreen({ navigation, route }) {
   const { firstName, lastName, phoneNumber, countryCode, socialProvider } = route.params || {};
@@ -57,20 +59,20 @@ export default function OtpVerificationScreen({ navigation, route }) {
 
   const handleVerify = async () => {
     const otpString = otp.join('');
-    
     if (otpString.length !== 6) {
       Alert.alert('Error', 'Please enter the complete 6-digit code');
       return;
     }
-
     setLoading(true);
-
-    // Simulate API call delay
-    setTimeout(() => {
+    try {
+      const res = await apiPost('/api/auth/verify-otp', {
+        phone: phoneNumber,
+        otp: otpString
+      });
       setLoading(false);
-      
-      if (otpString === MOCK_OTP) {
-        // Success - navigate to terms screen
+      if (res.token) {
+        await AsyncStorage.setItem('token', res.token);
+        // Optionally store user info as well
         navigation.navigate('Terms', {
           firstName,
           lastName,
@@ -79,27 +81,25 @@ export default function OtpVerificationScreen({ navigation, route }) {
           socialProvider,
         });
       } else {
-        // Failed verification
-        setAttempts(attempts + 1);
-        setOtp(['', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
-        
-        if (attempts >= 2) {
-          Alert.alert(
-            'Too Many Attempts',
-            'You have exceeded the maximum verification attempts. Please try again later.',
-            [
-              { text: 'OK', onPress: () => navigation.goBack() }
-            ]
-          );
-        } else {
-          Alert.alert(
-            'Invalid Code',
-            `The verification code you entered is incorrect. ${3 - attempts} attempts remaining.`
-          );
-        }
+        Alert.alert('Verification Error', 'No token received.');
       }
-    }, 1500);
+    } catch (err) {
+      setLoading(false);
+      setAttempts(attempts + 1);
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+      if (attempts >= 2) {
+        Alert.alert(
+          'Too Many Attempts',
+          'You have exceeded the maximum verification attempts. Please try again later.',
+          [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ]
+        );
+      } else {
+        Alert.alert('Invalid Code', (err.message || 'Incorrect code') + `\n${3 - attempts} attempts remaining.`);
+      }
+    }
   };
 
   const handleResendOtp = () => {

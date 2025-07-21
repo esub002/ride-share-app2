@@ -14,6 +14,8 @@ import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useAuth } from '../auth/AuthContext';
 import { Colors } from '../constants/Colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiPost } from '../utils/api';
 
 const STEPS = {
   PHONE_VERIFICATION: 0,
@@ -87,18 +89,48 @@ export default function DriverLoginScreen({ navigation }) {
       setError('Please enter a valid phone number');
       return;
     }
-
     setLoading(true);
     setError('');
-
     try {
-      // Simulate phone verification
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Call backend to register driver and send OTP
+      await apiPost('/api/auth/driver/register', {
+        phone: formData.phone,
+        firstName: formData.firstName || '',
+        lastName: formData.lastName || '',
+        email: formData.email || '',
+        // Add more fields if needed
+      });
       setVerificationProgress(prev => ({ ...prev, phone: true }));
-      setCurrentStep(STEPS.SSN_VERIFICATION);
+      setCurrentStep(STEPS.SSN_VERIFICATION); // Or OTP step if you want a separate OTP input
     } catch (error) {
-      setError('Phone verification failed. Please try again.');
+      setError(error.message || 'Phone verification failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // OTP Verification (if you want a separate step, add it here)
+  const handleOtpVerification = async () => {
+    if (!formData.otp || formData.otp.length !== 6) {
+      setError('Please enter the 6-digit OTP');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiPost('/api/auth/driver/verify-otp', {
+        phone: formData.phone,
+        otp: formData.otp
+      });
+      if (res.token) {
+        await AsyncStorage.setItem('token', res.token);
+        setVerificationProgress(prev => ({ ...prev, phone: true }));
+        setCurrentStep(STEPS.SSN_VERIFICATION);
+      } else {
+        setError('No token received from server.');
+      }
+    } catch (error) {
+      setError(error.message || 'OTP verification failed.');
     } finally {
       setLoading(false);
     }

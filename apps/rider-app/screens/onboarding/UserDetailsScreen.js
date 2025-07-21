@@ -22,8 +22,9 @@ export default function UserDetailsScreen({ navigation, route }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState(phoneNumber || '');
+  const [loading, setLoading] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!firstName.trim() || !lastName.trim()) {
       Alert.alert('Error', 'Please enter both first name and last name');
       return;
@@ -33,15 +34,22 @@ export default function UserDetailsScreen({ navigation, route }) {
       Alert.alert('Error', 'Please enter your phone number');
       return;
     }
-
-    // Store user details and navigate to OTP screen
-    navigation.navigate('OtpVerification', {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      phoneNumber: phone.trim(),
-      countryCode,
-      socialProvider,
-    });
+    setLoading(true);
+    try {
+      // Optionally update registration with name/email if needed
+      // await apiPost('/api/auth/register', { phone, name: `${firstName} ${lastName}` });
+      setLoading(false);
+      navigation.navigate('OtpVerification', {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phoneNumber: phone.trim(),
+        countryCode,
+        socialProvider,
+      });
+    } catch (err) {
+      setLoading(false);
+      Alert.alert('Error', err.message || 'Failed to continue.');
+    }
   };
 
   const handleBack = () => {
@@ -132,11 +140,11 @@ export default function UserDetailsScreen({ navigation, route }) {
           </View>
 
           <Button
-            title="Continue"
+            title={loading ? 'Processing...' : 'Continue'}
             icon="arrow-forward"
             style={styles.continueButton}
             onPress={handleContinue}
-            disabled={!firstName.trim() || !lastName.trim() || (!phone.trim() && !socialProvider)}
+            disabled={!firstName.trim() || !lastName.trim() || (!phone.trim() && !socialProvider) || loading}
           />
         </View>
 

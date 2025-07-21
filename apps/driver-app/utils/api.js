@@ -3,78 +3,31 @@ import offlineManager from './offlineManager';
 import performanceOptimizer from './performanceOptimizer';
 import { Alert } from 'react-native';
 
-// Backend URL configuration - supports multiple fallback URLs
-const BACKEND_URLS = [
-  "http://localhost:3003",  // Backend is running on 3003
-  "http://localhost:3000",
-  "http://localhost:3001", 
-  "http://localhost:3002",
-  "http://localhost:3004",
-  "http://localhost:3005",
-  "http://10.1.10.243:3003",
-  "http://10.1.10.243:3000",
-  "http://127.0.0.1:3003",
-  "http://127.0.0.1:3000"
-];
+// utils/api.js
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-// Try to find the working backend URL
-let API_BASE_URL = BACKEND_URLS[0];
-
-// Function to test backend connectivity
-async function testBackendConnection(url) {
-  try {
-    console.log(`🔍 Testing backend connection: ${url}`);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-    
-    const response = await fetch(`${url}/health`, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      console.log(`✅ Backend connection successful: ${url}`);
-      return true;
-    } else {
-      console.log(`❌ Backend connection failed: ${url} (status: ${response.status})`);
-      return false;
-    }
-  } catch (error) {
-    console.log(`❌ Backend connection error: ${url} - ${error.message}`);
-    return false;
-  }
+export async function apiPost(path, data, token) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'API error');
+  return res.json();
 }
 
-// Function to find working backend
-async function findWorkingBackend() {
-  console.log('🔍 Searching for available backend...');
-  
-  for (const url of BACKEND_URLS) {
-    console.log(`   Testing: ${url}`);
-    const isWorking = await testBackendConnection(url);
-    if (isWorking) {
-      console.log(`✅ Backend found: ${url}`);
-      return url;
+export async function apiGet(path, token) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
     }
-  }
-  
-  console.log('⚠️ No backend found, using fallback URL');
-  return BACKEND_URLS[0];
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'API error');
+  return res.json();
 }
-
-// Initialize backend URL
-(async () => {
-  API_BASE_URL = await findWorkingBackend();
-})();
-
-// Export the current API base URL
-export { API_BASE_URL };
 
 // Mock data for when backend is not available
 export const MOCK_DATA = {
